@@ -8,7 +8,7 @@ env:
   AWS_REGION: ap-south-1                   # Change this to your region (e.g., ap-south-1)
   ECR_REPOSITORY: backend-app             # The name you gave your ECR repo
   ECS_SERVICE: backend-service            # We will create this in the console
-  ECS_CLUSTER: backend-cluster            # We will create this in the console
+  ECS_CLUSTER: tech-nebula-cluster            # We will create this in the console
   ECS_TASK_DEFINITION: backend-task       # We will create this in the console
   CONTAINER_NAME: backend-container       
 
