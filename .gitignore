@@ -1,0 +1,9 @@
+actions-runner/
+node_modules/
+*.tar.gz
+.env
+dist/
+build/
+.env
+venv/
+venv/
