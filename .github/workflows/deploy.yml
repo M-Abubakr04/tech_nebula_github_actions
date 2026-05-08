@@ -1,93 +1,122 @@
-name: Deploy to Amazon ECS
+name: Deploy Backend to ECS
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 env:
-  AWS_REGION: ap-south-1
-  ECR_REPOSITORY: backend-app
 
-  # UPDATED SERVICE NAME BASED ON YOUR AWS LIST OUTPUT
-  ECS_SERVICE: tech-nebula-dev-ECSServiceStack-FCE3F0EHBORG-ECSService-JqxQiaMOaaCb
-  
-  ECS_CLUSTER: tech-nebula-cluster
-  ECS_TASK_DEFINITION: tech-nebula-task
-  CONTAINER_NAME: backend-container
+AWS_REGION: ap-south-1
+
+ECR_REPOSITORY: backend
+
+ECS_CLUSTER: tech-nebula-cluster
+
+ECS_SERVICE: backend
+
+ECS_TASK_DEFINITION: backend-task
+
+CONTAINER_NAME: backend-container
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
 
-    steps:
-      #######################################
-      # CHECKOUT
-      #######################################
-      - name: Checkout
-        uses: actions/checkout@v4
+deploy:
 
-      #######################################
-      # AWS LOGIN
-      #######################################
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+```
+runs-on: ubuntu-latest
 
-      #######################################
-      # ECR LOGIN
-      #######################################
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+steps:
 
-      #######################################
-      # BUILD + PUSH IMAGE
-      #######################################
-      - name: Build and Push Docker Image
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push \
-            $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+  #########################################
+  # CHECKOUT
+  #########################################
 
-      #######################################
-      # GET CURRENT TASK DEF
-      #######################################
-      - name: Download Current Task Definition
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --query taskDefinition \
-            > task-definition.json
+  - name: Checkout
+    uses: actions/checkout@v4
 
-      #######################################
-      # RENDER NEW IMAGE
-      #######################################
-      - name: Inject New Image into Task Definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+  #########################################
+  # AWS LOGIN
+  #########################################
 
-      #######################################
-      # DEPLOY TO ECS
-      #######################################
-      - name: Deploy ECS Task Definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v4
+
+    with:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-region: ${{ env.AWS_REGION }}
+
+  #########################################
+  # LOGIN TO ECR
+  #########################################
+
+  - name: Login to Amazon ECR
+    id: login-ecr
+
+    uses: aws-actions/amazon-ecr-login@v2
+
+  #########################################
+  # BUILD IMAGE
+  #########################################
+
+  - name: Build and Push Docker Image
+    id: build-image
+
+    env:
+      ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      IMAGE_TAG: latest
+
+    run: |
+
+      docker build \
+        -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+      docker push \
+        $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  #########################################
+  # DOWNLOAD TASK DEF
+  #########################################
+
+  - name: Download Current Task Definition
+
+    run: |
+
+      aws ecs describe-task-definition \
+        --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+        --query taskDefinition \
+        > task-definition.json
+
+  #########################################
+  # INJECT IMAGE
+  #########################################
+
+  - name: Inject New Image
+    id: task-def
+
+    uses: aws-actions/amazon-ecs-render-task-definition@v1
+
+    with:
+      task-definition: task-definition.json
+      container-name: ${{ env.CONTAINER_NAME }}
+      image: ${{ steps.build-image.outputs.image }}
+
+  #########################################
+  # DEPLOY ECS
+  #########################################
+
+  - name: Deploy ECS Task Definition
+
+    uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+
+    with:
+      task-definition: ${{ steps.task-def.outputs.task-definition }}
+      service: ${{ env.ECS_SERVICE }}
+      cluster: ${{ env.ECS_CLUSTER }}
+      wait-for-service-stability: true
+```
+
          
