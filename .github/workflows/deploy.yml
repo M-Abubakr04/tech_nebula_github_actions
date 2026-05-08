@@ -1,4 +1,4 @@
-name: Deploy Backend to ECS
+name: Deploy Backend to ECS Claude Success
 
 on:
   push:
